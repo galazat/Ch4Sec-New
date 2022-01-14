@@ -1,0 +1,70 @@
+version: "3.3"
+services:
+  nginx:
+    build: ./nginx/.
+    restart: always
+    links:
+      - back:back
+    depends_on:
+      - back
+    ports:
+      - 80:80
+      - 443:443
+    env_file:
+      - nginx/.env.docker
+    volumes:
+      - ./front/dist/prod:/var/www/front
+      - media_data:/var/www/media
+      - static_data:/var/www/static
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+
+  back:
+    build: ./back/.
+    restart: always
+    links:
+      - pg:pg
+    depends_on:
+      - pg
+    expose:
+      - 8000
+    environment:
+      - BASE_URL=${BASE_URL}
+    volumes:
+      - media_data:/application/src/media
+      - static_data:/application/src/static
+      - ./back/project/fixtures:/application/src/project/fixtures
+
+  dramatiq:
+    build: ./back/.
+    restart: always
+    command: "run-dramatiq"
+    links:
+      - pg:pg
+      - redis:redis
+    depends_on:
+      - pg
+      - redis
+    environment:
+      - BASE_URL=${BASE_URL}
+    volumes:
+      - media_data:/application/src/media
+      - static_data:/application/src/static
+
+  pg:
+    image: postgres:12
+    restart: always
+    volumes:
+      - ./data/pg:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=main
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+
+  redis:
+    image: redis
+    restart: always
+
+volumes:
+  media_data:
+  static_data:
